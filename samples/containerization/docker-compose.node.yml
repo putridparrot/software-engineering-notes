@@ -1,0 +1,8 @@
+# Override file that swaps the .NET api for the TypeScript/Node one.
+# Compose merges it over docker-compose.yml:
+#   docker compose -f docker-compose.yml -f docker-compose.node.yml up -d --build
+services:
+  api:
+    build: ./api-node
+    environment:
+      REDIS_URL: "redis://redis:6379"

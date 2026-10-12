@@ -1,0 +1,9 @@
+# Apply everything with: kubectl apply -k k8s/base
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: visits
+resources:
+  - namespace.yaml
+  - redis.yaml
+  - api.yaml
+  - web.yaml

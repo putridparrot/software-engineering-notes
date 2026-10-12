@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "visits.fullname" . }}-web-nginx
+  labels:
+    {{- include "visits.labels" . | nindent 4 }}
+    {{- include "visits.selectorLabels" (dict "root" . "component" "web") | nindent 4 }}
+data:
+  default.conf: |
+    server {
+        listen 80;
+
+        location / {
+            root  /usr/share/nginx/html;
+            index index.html;
+        }
+
+        location /api/ {
+            proxy_pass http://{{ include "visits.fullname" . }}-api:{{ .Values.api.service.port }};
+        }
+    }

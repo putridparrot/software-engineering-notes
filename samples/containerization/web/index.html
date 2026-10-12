@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Container demo</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 3rem auto; padding: 0 1rem; }
+    button { font-size: 1rem; padding: .5rem 1rem; }
+    pre { background: #f3f3f3; padding: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Container demo</h1>
+  <p>This page is served by the <code>web</code> container (nginx). The button calls the
+     <code>api</code> container (.NET), which stores a counter in the <code>redis</code> container.</p>
+  <button id="go">Call the API</button>
+  <pre id="out">Click the button…</pre>
+  <script>
+    document.getElementById('go').addEventListener('click', async () => {
+      const res = await fetch('/api/visits');
+      document.getElementById('out').textContent = JSON.stringify(await res.json(), null, 2);
+    });
+  </script>
+</body>
+</html>

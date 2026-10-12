@@ -1,0 +1,24 @@
+{{ .Chart.Name }} {{ .Chart.AppVersion }} is installed as release "{{ .Release.Name }}" in namespace "{{ .Release.Namespace }}".
+
+API image: {{ include "visits.image" (dict "root" . "image" .Values.api.image) }}
+{{- if .Values.api.autoscaling.enabled }}
+API replicas: autoscaled {{ .Values.api.autoscaling.minReplicas }}-{{ .Values.api.autoscaling.maxReplicas }}
+{{- else }}
+API replicas: {{ .Values.api.replicaCount }}
+{{- end }}
+
+Wait for the rollout:
+  kubectl -n {{ .Release.Namespace }} rollout status deploy/{{ include "visits.fullname" . }}-api
+{{- if eq .Values.web.service.type "LoadBalancer" }}
+
+Then call the API (on Docker Desktop the LoadBalancer is published on localhost):
+  curl http://localhost:{{ .Values.web.service.port }}/api/visits
+{{- else }}
+
+Then port-forward and call the API:
+  kubectl -n {{ .Release.Namespace }} port-forward svc/{{ include "visits.fullname" . }}-web 8000:{{ .Values.web.service.port }}
+  curl http://localhost:8000/api/visits
+{{- end }}
+
+Run the chart's smoke test:
+  helm test {{ .Release.Name }} -n {{ .Release.Namespace }}

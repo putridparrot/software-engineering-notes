@@ -1,0 +1,8 @@
+# Run the TypeScript/Node api instead of the .NET one:
+#   helm upgrade --install visits ./helm/visits -f ./helm/visits/values-node.yaml
+api:
+  image:
+    repository: visits-api-node
+  env:
+    ConnectionStrings__Redis: null   # null removes a key inherited from values.yaml
+    REDIS_URL: 'redis://{{ include "visits.redisHost" . }}:6379'

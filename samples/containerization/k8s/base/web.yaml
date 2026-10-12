@@ -1,0 +1,85 @@
+# Kubernetes-specific nginx config, mounted over the one baked into the image.
+# Docker's DNS trick (resolver 127.0.0.11) is not needed: the "api" Service
+# has a single stable virtual IP and load-balances across the api pods itself.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: web-nginx
+data:
+  default.conf: |
+    server {
+        listen 80;
+
+        location / {
+            root  /usr/share/nginx/html;
+            index index.html;
+        }
+
+        location /api/ {
+            proxy_pass http://api:8080;
+        }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      containers:
+        - name: web
+          image: visits-web:1.0
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 10
+          # Keep serving for a few seconds after termination starts, while the pod is
+          # removed from the Service endpoints - avoids dropped requests during rollouts
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: 5
+          resources:
+            requests:
+              cpu: 50m
+              memory: 32Mi
+            limits:
+              memory: 128Mi
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: web-nginx
+---
+# The only externally reachable entry point.
+# On Docker Desktop a LoadBalancer is published on localhost; on AKS it gets a public IP.
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+spec:
+  type: LoadBalancer
+  selector:
+    app: web
+  ports:
+    - port: 8000
+      targetPort: 80

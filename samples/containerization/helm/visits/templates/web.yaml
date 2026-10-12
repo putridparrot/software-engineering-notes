@@ -1,0 +1,66 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "visits.fullname" . }}-web
+  labels:
+    {{- include "visits.labels" . | nindent 4 }}
+    {{- include "visits.selectorLabels" (dict "root" . "component" "web") | nindent 4 }}
+spec:
+  replicas: {{ .Values.web.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "visits.selectorLabels" (dict "root" . "component" "web") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "visits.selectorLabels" (dict "root" . "component" "web") | nindent 8 }}
+      annotations:
+        # Changes whenever the nginx config changes, which triggers a rolling restart
+        checksum/config: {{ include (print $.Template.BasePath "/web-configmap.yaml") . | sha256sum }}
+    spec:
+      containers:
+        - name: web
+          image: {{ include "visits.image" (dict "root" . "image" .Values.web.image) }}
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 80
+            periodSeconds: 10
+          {{- with .Values.web.preStopSleepSeconds }}
+          lifecycle:
+            preStop:
+              sleep:
+                seconds: {{ . }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.web.resources | nindent 12 }}
+      volumes:
+        - name: nginx-config
+          configMap:
+            name: {{ include "visits.fullname" . }}-web-nginx
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "visits.fullname" . }}-web
+  labels:
+    {{- include "visits.labels" . | nindent 4 }}
+    {{- include "visits.selectorLabels" (dict "root" . "component" "web") | nindent 4 }}
+spec:
+  type: {{ .Values.web.service.type }}
+  selector:
+    {{- include "visits.selectorLabels" (dict "root" . "component" "web") | nindent 4 }}
+  ports:
+    - port: {{ .Values.web.service.port }}
+      targetPort: 80

@@ -1,0 +1,17 @@
+# Run with: helm test <release>
+# Calls the API through the web front end, which proves all three tiers are wired up.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: {{ include "visits.fullname" . }}-test-connection
+  labels:
+    {{- include "visits.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: test
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+spec:
+  restartPolicy: Never
+  containers:
+    - name: wget
+      image: busybox:1.37
+      command: ["wget", "-qO-", "http://{{ include "visits.fullname" . }}-web:{{ .Values.web.service.port }}/api/visits"]

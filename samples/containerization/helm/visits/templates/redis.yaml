@@ -1,0 +1,82 @@
+{{- if .Values.redis.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "visits.fullname" . }}-redis
+  labels:
+    {{- include "visits.labels" . | nindent 4 }}
+    {{- include "visits.selectorLabels" (dict "root" . "component" "redis") | nindent 4 }}
+  annotations:
+    # Keep the data if the release is uninstalled
+    helm.sh/resource-policy: keep
+spec:
+  accessModes: ["ReadWriteOnce"]
+  {{- with .Values.redis.persistence.storageClass }}
+  storageClassName: {{ . }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.redis.persistence.size }}
+---
+{{- end }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "visits.fullname" . }}-redis
+  labels:
+    {{- include "visits.labels" . | nindent 4 }}
+    {{- include "visits.selectorLabels" (dict "root" . "component" "redis") | nindent 4 }}
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "visits.selectorLabels" (dict "root" . "component" "redis") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "visits.selectorLabels" (dict "root" . "component" "redis") | nindent 8 }}
+    spec:
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.imagePullPolicy }}
+          ports:
+            - containerPort: 6379
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      volumes:
+        - name: data
+          {{- if .Values.redis.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "visits.fullname" . }}-redis
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "visits.redisHost" . }}
+  labels:
+    {{- include "visits.labels" . | nindent 4 }}
+    {{- include "visits.selectorLabels" (dict "root" . "component" "redis") | nindent 4 }}
+spec:
+  selector:
+    {{- include "visits.selectorLabels" (dict "root" . "component" "redis") | nindent 4 }}
+  ports:
+    - port: 6379
+      targetPort: 6379
